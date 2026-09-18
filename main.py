@@ -2255,9 +2255,8 @@ def main():
 
     # 窗口左上角 / 任务栏的图标。打包后 exe 自己也带图标，但源码直接跑时
     # 只有这个文件能指望；两种情形路径不同，所以先看 _MEIPASS。
-    # icon-2 是默认那套；assets/ 里还带了 icon-1，想换就把它覆盖过来。
     _base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    _ico = os.path.join(_base, "assets", "icon-2.ico")
+    _ico = os.path.join(_base, "assets", "icon.ico")
     if os.path.exists(_ico):
         app.setWindowIcon(QIcon(_ico))
 

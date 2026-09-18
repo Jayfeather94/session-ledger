@@ -77,8 +77,7 @@ up as Chinese text in the English UI. The script exits non-zero on any miss.
 | `build.bat` | One-click build |
 | `slim.ps1` | Optional trimming of the PyInstaller output |
 | `version_info.txt` | EXE file properties (product name, version) |
-| `assets/icon-2.ico` | App icon — the default one, embedded in the EXE (256 → 16 px) |
-| `assets/icon-1.ico` | Alternative icon, shipped alongside; swap it over `icon-2.ico` and rebuild to use it |
+| `assets/icon.ico` | App icon, embedded in the EXE (256 → 16 px) |
 | `README.txt` | End-user guide, shipped inside the zip |
 
 ## How this differs from `/resume`

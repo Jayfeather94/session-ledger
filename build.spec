@@ -20,9 +20,7 @@ a = Analysis(
     pathex=[ROOT],
     binaries=[],
     # 整个 assets 目录都进包 —— 源码直接跑时读的是同目录下的 assets/，
-    # 打包后那目录在 _internal 里，靠这条送进去（main() 里按 _MEIPASS 找）。
-    # 两个图标都带上：exe 里嵌的是 icon-2，icon-1 作为备用一起发出去，
-    # 想换的话把 icon-2.ico 覆盖掉、重打一次包就行。
+    # 打包后那目录在 _internal 里，靠这条送进去（main() 里按 _MEIPASS 找）
     datas=[(os.path.join(ROOT, "assets"), "assets")],
     hiddenimports=[
         # 主程序是 sys.path.insert 之后再 import 的，打包器不一定顺着找到，
@@ -86,7 +84,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=os.path.join(ROOT, "assets", "icon-2.ico"),
+    icon=os.path.join(ROOT, "assets", "icon.ico"),
     version=os.path.join(ROOT, "version_info.txt"),
 )
 
