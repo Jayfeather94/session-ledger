@@ -1,0 +1,12 @@
+# 统一换行符 —— 免得不同机器上 checkout 出来的文件行尾不一样，
+# 出现「我什么都没改但 git 说改了一大片」。
+* text=auto eol=lf
+
+# Windows 的批处理和 PowerShell 脚本按 CRLF 走
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# 图片按二进制处理，别做行尾转换
+*.ico  binary
+*.png  binary
