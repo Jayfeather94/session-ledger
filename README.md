@@ -9,6 +9,22 @@ only lists the conversations belonging to the project you are currently in.
 SessionLedger lists **all of them at once**, across every project, and lets you
 do the housekeeping the CLI has no commands for.
 
+## Screenshots
+
+Session list, light theme, Chinese UI:
+
+![Session list, light theme](docs/main-zh.png)
+
+Session list, dark theme, English UI:
+
+![Session list, dark theme](docs/main-en.png)
+
+Settings — theme, background image, optical calibration, workspace:
+
+![Settings, Chinese](docs/settings-zh.png)
+
+![Settings, English](docs/settings-en.png)
+
 ## Features
 
 - **One table for every session** on the machine — search by name / folder /
