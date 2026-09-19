@@ -1963,7 +1963,9 @@ class MainWindow(QMainWindow):
         target = QFileDialog.getExistingDirectory(self, T("选择新的工作区"), start or "")
         if not target:
             return
-        target = target.rstrip("\\/")
+        # 归一化：目录选择框给的是正斜杠，而会话文件里记的是反斜杠。
+        # 这里先转过来，后面确认框里显示的就是最终会写进去的样子。
+        target = os.path.normpath(target.rstrip("\\/"))
 
         def norm(p):
             return os.path.normcase((p or "").rstrip("\\/"))

@@ -537,8 +537,13 @@ def migrate_session(rec, new_cwd):
     出事得有得退。
     """
     src = rec.get("file") or ""
-    old = (rec.get("cwd") or "").rstrip("\\/")
-    new_cwd = (new_cwd or "").rstrip("\\/")
+    # ★ 一定要归一化。Qt 的目录选择框在 Windows 上返回的是**正斜杠**
+    #   （D:/CC-Workspace），直接写进会话文件的话，那条记录就变成 D:/… ——
+    #   功能上能用，但看着像被改坏了，而且跟 Claude Code 自己记的写法不一致。
+    old = (rec.get("cwd") or "").strip()
+    old = os.path.normpath(old.rstrip("\\/")) if old else ""
+    new_cwd = (new_cwd or "").strip()
+    new_cwd = os.path.normpath(new_cwd) if new_cwd else ""
     if not src or not os.path.isfile(src):
         return False, T("对话文件不存在")
     if not new_cwd:
