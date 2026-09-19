@@ -921,6 +921,31 @@ class SessionTable(QTableView):
         super().paintEvent(ev)
 
 
+def attach_grip(dlg):
+    """在对话框右下角挂一个缩放角标。
+
+    对话框本来也能拖边框缩放，但右下角那条判定带只有几个像素宽，鼠标很难
+    压中；挂一个 QSizeGrip 等于把这块判定区放大到 16×16。窗口最大化时它
+    自己会藏起来。
+
+    位置得自己算 —— 它不是布局里的东西，塞进布局会被拉伸成一整条。
+    挪到紧贴右下角，压在滚动条/留白上：滚动条那端的箭头本来就关掉了
+    （见样式表），那点地方不装东西。
+    """
+    grip = QSizeGrip(dlg)
+    grip.setFixedSize(16, 16)
+    grip.setToolTip(T("拖动这里缩放窗口"))
+    dlg._grip = grip            # 挂住引用 —— 局部变量一回收，控件就没了
+
+    def place():
+        grip.move(max(0, dlg.width() - grip.width() - 4),
+                  max(0, dlg.height() - grip.height() - 4))
+        grip.raise_()           # 同一父控件下还有布局里的一堆控件，抬到最上层
+
+    dlg._place_grip = place
+    place()
+
+
 # ———————————————— 回收站 ————————————————
 
 class TrashDialog(QDialog):
@@ -971,22 +996,43 @@ class TrashDialog(QDialog):
         self.table.customContextMenuRequested.connect(self._menu)
 
         bar = QHBoxLayout()
+        self.bar = bar
+        # 三个动作都可收起：窗口窄了按【从右往左】收进「▾」。
+        # 跟主窗口同一套做法（那边的注释更细）。
+        self._bar_mid = []
         for text, fn in ((T("恢复"), self.do_restore), (T("彻底删除"), self.do_purge),
                          (T("清空回收站"), self.do_empty)):
             b = QPushButton(text)
             b.clicked.connect(fn)
             bar.addWidget(b)
+            self._bar_mid.append((b, text, fn))    # 文案和动作存一份，▾ 菜单要用
+
+        self.more_btn = QPushButton("▾")
+        self.more_btn.setObjectName("more")
+        self.more_btn.setToolTip(T("窗口放不下的按钮都在这里"))
+        self.more_btn.clicked.connect(self._more_menu)
+        self.more_btn.setVisible(False)
+        bar.addWidget(self.more_btn)
+
+        # 右下角原来有个「关闭」，去掉 —— 标题栏的 X 和 Esc 都能关，
+        # 而它占的那块正好是缩放角标该在的地方。去掉之后右端只剩一根
+        # 弹簧，角标不会压到任何按钮。
         bar.addStretch(1)
-        close = QPushButton(T("关闭"))
-        close.clicked.connect(self.accept)
-        bar.addWidget(close)
         lay.addLayout(bar)
+
+        attach_grip(self)
+        # 能缩到多小。不设的话下限就是【布局的最小宽度】—— 表格加三个按钮
+        # 摞在一起，缩不到哪儿去。设小之后：按钮收进「▾」，表格跟着缩。
+        self.setMinimumSize(self._bar_floor(), 240)
 
         self.reload()
 
     def showEvent(self, ev):
         super().showEvent(ev)
         themed_title_bar(self, self.parent())    # 标题栏跟主窗口一个色
+        # 构造阶段布局还没量过，_fit_bar 算出来的是错的；显示之后补一次
+        QTimer.singleShot(0, self._fit_bar)
+        QTimer.singleShot(0, self._place_grip)
 
     def _fill_slack(self):
         """把宽度的富余补给「名字」列 —— 表格始终正好铺满，不剩空也不溢出。
@@ -1017,6 +1063,64 @@ class TrashDialog(QDialog):
     def resizeEvent(self, ev):
         super().resizeEvent(ev)
         QTimer.singleShot(0, self._fill_slack)
+        QTimer.singleShot(0, self._fit_bar)
+        QTimer.singleShot(0, self._place_grip)
+
+    def _bar_floor(self):
+        """窗口允许缩到的最小宽度。
+
+        只按「▾」加表格那点余量算 —— 三个按钮全收起来也还能用，所以窗口
+        不必停在「三个按钮都展开」的宽度上。跟着按钮的实际尺寸走，不写死
+        数字：系统缩放调大时按钮会一起变大，写死的数字当场失效。
+        """
+        lm = self.layout().contentsMargins()
+        # 这个数必须【明显小于】三个按钮加起来的宽度，否则永远收不起来 ——
+        # 下限比按钮排还宽的话，窗口缩到极限时它们照样全放得下。
+        return max(240, lm.left() + lm.right() + self.bar.spacing() * 3
+                   + self.more_btn.sizeHint().width() + 160)
+
+    def _fit_bar(self):
+        """按窗口宽度决定底排留几个按钮，放不下的收进「▾」。
+
+        跟主窗口是同一套（_fit_bar 的算法、连同「别用实际几何、只用
+        sizeHint」那条理由都写在那儿），只是这里没有「固定件」分组。
+        """
+        mid = getattr(self, "_bar_mid", None)
+        if not mid:
+            return
+        lm = self.layout().contentsMargins()
+        avail = self.width() - lm.left() - lm.right()
+        sp = self.bar.spacing()
+        more_w = self.more_btn.sizeHint().width()
+        widths = [b.sizeHint().width() for b, _t, _f in mid]
+
+        keep = len(widths)
+        while keep > 0:
+            more = 1 if keep < len(widths) else 0
+            n = keep + more                       # 可见控件数，间隔比它少一个
+            need = (sum(widths[:keep]) + (more_w if more else 0)
+                    + sp * max(0, n - 1))
+            if need <= avail:
+                break
+            keep -= 1
+
+        for i, (b, _t, _f) in enumerate(mid):
+            b.setVisible(i < keep)
+        self.more_btn.setVisible(keep < len(mid))
+
+        floor = self._bar_floor()
+        if self.minimumWidth() != floor:
+            self.setMinimumWidth(floor)
+
+    def _more_menu(self):
+        """「▾」：把此刻收起来的按钮列出来。动作和底排那些是同一个函数。"""
+        menu = QMenu(self)
+        for b, text, fn in self._bar_mid:
+            if not b.isVisible():
+                menu.addAction(text, fn)
+        if menu.isEmpty():
+            return
+        menu.exec(self.more_btn.mapToGlobal(self.more_btn.rect().bottomLeft()))
 
     def reload(self):
         self.items = core.trash_entries()
@@ -1110,7 +1214,7 @@ class LookDialog(QDialog):
         self.setWindowTitle(T("设置"))
         # 这是【能缩到多小】的下限，不是打开尺寸（打开尺寸在末尾按内容算）。
         # 定得比内容小得多是有意的：再往下缩，就由滚动条接手，见下面。
-        self.setMinimumSize(340, 300)
+        self.setMinimumSize(280, 220)
 
         # 外面套一层滚动区。不套的话，这个对话框的最小宽度就是【所有控件的
         # 最小宽度之和】，一路卡着缩不动；套上之后，窗口可以缩到内容放不下
@@ -1149,15 +1253,9 @@ class LookDialog(QDialog):
         outer.addWidget(self._section_header(T("背景图")))
         outer.addLayout(self._build_background())
 
+        # 右下角原来有个「关闭」，去掉 —— 标题栏的 X 和 Esc 都能关，
+        # 而它占的那块正好是缩放角标该在的地方。
         outer.addStretch(1)
-        outer.addSpacing(14)
-        bottom = QHBoxLayout()
-        bottom.addStretch(1)
-        b_close = QPushButton(T("关闭"))
-        b_close.setMinimumHeight(FIELD_H)
-        b_close.clicked.connect(self.accept)
-        bottom.addWidget(b_close)
-        outer.addLayout(bottom)
 
         # ———— 页脚：开发者与版权 ————
         # 放在最底下、用最淡的一档颜色。它是「需要时找得到」，不是要抢眼；
@@ -1192,7 +1290,6 @@ class LookDialog(QDialog):
         scr = self.screen().availableGeometry() if self.screen() else None
         self.resize(max(560, hint.width()),
                     min(hint.height(), scr.height() - 120) if scr else hint.height())
-
         # 三根滑杆要等长，数值标签就得一样宽 —— 而且必须【定死】不能只给最小值：
         # 英文里「almost fully transparent 0%」比「semi-transparent 59%」长一大截，
         # 用最小宽度的话，拖到低段标签一撑，滑杆当场缩短 —— 手感就是「越拖越短」。
@@ -1203,6 +1300,12 @@ class LookDialog(QDialog):
         val_w = max(fm.horizontalAdvance(x) for x in samples) + 6
         for lb in (self.panel_hint, self.dim_hint, self.soft_hint):
             lb.setFixedWidth(val_w)
+
+        attach_grip(self)
+
+    def resizeEvent(self, ev):
+        super().resizeEvent(ev)
+        self._place_grip()
 
     # ———————————————— 排版零件 ————————————————
     # 横排是这次排版的骨架：标签在 QFormLayout 的左列、控件在右列，

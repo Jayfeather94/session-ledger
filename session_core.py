@@ -40,7 +40,7 @@ APP_TITLE = "会话簿"
 # ★ 改这里的时候，version_info.txt 里的 FileVersion / ProductVersion 要一起改 ——
 #   那个文件是给 exe 的文件属性用的，两者对不上就会出现「界面写着 1.0.1、
 #   右键属性里是 1.0.0」这种自相矛盾。
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.0.3"
 AUTHOR = "Jayfeather94"
 REPO_URL = "https://github.com/Jayfeather94/session-ledger"
 
