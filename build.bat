@@ -44,7 +44,7 @@ if not exist "%PY%" (
 )
 
 echo.
-echo === 1/4  Checking UI strings for missing translations ===
+echo === 1/5  Checking UI strings for missing translations ===
 "%PY%" check_i18n.py
 if errorlevel 1 (
     echo.
@@ -56,12 +56,12 @@ if errorlevel 1 (
 )
 
 echo.
-echo === 2/4  Cleaning previous output ===
+echo === 2/5  Cleaning previous output ===
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 
 echo.
-echo === 3/4  Building ===
+echo === 3/5  Building ===
 "%PY%" -m PyInstaller --clean --noconfirm build.spec
 if errorlevel 1 (
     echo.
@@ -71,7 +71,28 @@ if errorlevel 1 (
 )
 
 echo.
-echo === 4/4  Self-check ===
+echo === 4/5  Copying the user guide and the license texts ===
+rem These go NEXT TO the exe, not into PyInstaller's datas - a data file lands
+rem under _internal\ where nobody looks.
+rem Do NOT let the destination path end with a backslash: inside quotes, the
+rem trailing \" is parsed as an escaped quote and the command fails silently.
+copy /y "README.txt" "dist\SessionLedger"
+if errorlevel 1 goto :copyfailed
+xcopy /y /i /e "THIRD-PARTY-LICENSES" "dist\SessionLedger\THIRD-PARTY-LICENSES"
+if errorlevel 1 goto :copyfailed
+echo README.txt and THIRD-PARTY-LICENSES\ copied next to the EXE.
+goto :selfcheck
+
+:copyfailed
+echo.
+echo [x] Failed to copy README.txt / THIRD-PARTY-LICENSES into the output folder.
+pause
+exit /b 1
+
+:selfcheck
+
+echo.
+echo === 5/5  Self-check ===
 if not exist "dist\SessionLedger\SessionLedger.exe" (
     echo [x] dist\SessionLedger\SessionLedger.exe was not produced.
     pause

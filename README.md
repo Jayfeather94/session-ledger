@@ -79,6 +79,7 @@ up as Chinese text in the English UI. The script exits non-zero on any miss.
 | `version_info.txt` | EXE file properties (product name, version) |
 | `assets/icon.png` | App icon source — 1024², transparent background, embedded in the EXE |
 | `README.txt` | End-user guide, shipped inside the zip |
+| `THIRD-PARTY-LICENSES/` | License texts of the bundled components, shipped next to the EXE |
 
 ## How this differs from `/resume`
 
@@ -93,12 +94,18 @@ up as Chinese text in the English UI. The script exits non-zero on any miss.
 
 ## License
 
-The project's own code is released under the MIT License.
+The project's own code is released under the MIT License — see `LICENSE`.
 
 Third-party components bundled with the built program:
 
-- [PySide6](https://www.qt.io/qt-for-python) — LGPL v3
+- [PySide6](https://www.qt.io/qt-for-python) / Qt 6 — LGPL v3
 - [Pillow](https://python-pillow.org/) — MIT-CMU / HPND
+
+Their license texts are reproduced in `THIRD-PARTY-LICENSES/` and shipped in
+the download next to the EXE, as those licenses require. The build is a
+PyInstaller *onedir* bundle, so the Qt `.dll` files sit loose in
+`_internal\PySide6\` and can be replaced — which is what the LGPL's relinking
+requirement asks for. See `THIRD-PARTY-LICENSES/README.md`.
 
 ---
 

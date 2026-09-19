@@ -117,6 +117,8 @@ A: 对话存在 %USERPROFILE%\.claude\projects\ 下，拷过去就行。
 ----
 本程序使用 PySide6（LGPL v3）和 Pillow（MIT/HPND）。
 
+它们的许可证正文放在程序目录下的 THIRD-PARTY-LICENSES\ 文件夹里。
+
 
 ────────────────── English ──────────────────
 
@@ -237,3 +239,6 @@ A: Conversations live in %USERPROFILE%\.claude\projects\ — copy that folder.
 License
 -------
 This program uses PySide6 (LGPL v3) and Pillow (MIT/HPND).
+
+The full license texts are in the THIRD-PARTY-LICENSES\ folder next to the
+program.
