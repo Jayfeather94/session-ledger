@@ -7,8 +7,8 @@
 
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 0, 0, 0),
-    prodvers=(1, 0, 0, 0),
+    filevers=(1, 0, 1, 0),
+    prodvers=(1, 0, 1, 0),
   ),
   kids=[
     StringFileInfo([
@@ -16,9 +16,9 @@ VSVersionInfo(
         '080404B0',
         [StringStruct('CompanyName', ''),
          StringStruct('FileDescription', '会话簿 — Claude Code 对话管理器'),
-         StringStruct('FileVersion', '1.0.0.0'),
+         StringStruct('FileVersion', '1.0.1.0'),
          StringStruct('ProductName', 'SessionLedger'),
-         StringStruct('ProductVersion', '1.0.0.0')])
+         StringStruct('ProductVersion', '1.0.1.0')])
     ]),
     VarFileInfo([VarStruct('Translation', [2052, 1200])])
   ]

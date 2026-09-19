@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView, QAbstractScrollArea, QApplication, QButtonGroup, QCheckBox,
     QComboBox, QDialog, QFileDialog, QFormLayout, QFrame,
     QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QMainWindow,
-    QMessageBox, QPushButton, QRadioButton, QSlider, QStyledItemDelegate,
+    QMenu, QMessageBox, QPushButton, QRadioButton, QSlider, QStyledItemDelegate,
     QTableView, QVBoxLayout, QWidget,
 )
 
@@ -767,6 +767,25 @@ class SessionModel(QAbstractTableModel):
             return 0
         return len(self.HEADERS) + (1 if self.pad else 0)
 
+    def sort(self, column, order=Qt.AscendingOrder):
+        """按某一列排序。
+
+        回收站那个表格直接拿这个模型排 —— 主表格走的是代理（SessionFilter），
+        点表头调的是【代理】的 sort()，压根不经过这里。所以两边互不干扰。
+        """
+        keys = (lambda r: r["title"].lower(),
+                lambda r: (r["cwd"] or "").lower(),
+                lambda r: r["mtime"],
+                lambda r: r["msgs"])
+        if not (0 <= column < len(keys)):
+            return
+        self.layoutAboutToBeChanged.emit()
+        try:
+            self.rows.sort(key=keys[column], reverse=(order == Qt.DescendingOrder))
+        except Exception:
+            pass
+        self.layoutChanged.emit()
+
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if orientation != Qt.Horizontal:
             return None
@@ -932,7 +951,17 @@ class TrashDialog(QDialog):
         self.table.verticalHeader().setVisible(False)
         self._slack_busy = False
         self._last_vp_w = None
+        # 点表头排序。默认按「删除时间」倒序 —— 刚删的排最上面，
+        # 跟回收站该有的顺序一致。
+        self.table.setSortingEnabled(True)
+        self.table.sortByColumn(2, Qt.DescendingOrder)
+
         lay.addWidget(self.table)
+
+        # 右键菜单。跟下面那排按钮同一批动作 —— 主表格有，这里也得有，
+        # 不然从主列表点进来的人会以为这儿不能右键。
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._menu)
 
         bar = QHBoxLayout()
         for text, fn in ((T("恢复"), self.do_restore), (T("彻底删除"), self.do_purge),
@@ -1006,6 +1035,22 @@ class TrashDialog(QDialog):
             if 0 <= idx.row() < len(self.model.rows):
                 out.append(self.model.rows[idx.row()]["_raw"])
         return out
+
+    def _menu(self, pos):
+        """回收站的右键菜单。点空白处不动选中项，点行上则先选中那一行。"""
+        sel = self.table.selectionModel().selectedRows()
+        if not sel:
+            idx = self.table.indexAt(pos)
+            if idx.isValid():
+                self.table.selectRow(idx.row())
+        if not self.table.selectionModel().selectedRows():
+            return
+        menu = QMenu(self)
+        menu.addAction(T("恢复"), self.do_restore)
+        menu.addAction(T("彻底删除"), self.do_purge)
+        menu.addSeparator()          # 清空是整盘操作，跟上面两条不是一回事
+        menu.addAction(T("清空回收站"), self.do_empty)
+        menu.exec(self.table.viewport().mapToGlobal(pos))
 
     def do_restore(self):
         sel = self._picked()
@@ -1552,6 +1597,11 @@ class MainWindow(QMainWindow):
         self.table.doubleClicked.connect(self._on_double)
         self.table.selectionModel().selectionChanged.connect(lambda *_: self._on_selection())
 
+        # 右键菜单。跟底部那排按钮是同一批动作 —— 鼠标已经在某一行上了，
+        # 不用再跑到窗口底部去点。
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._table_menu)
+
         # 横向改成【按像素】滚动。
         # Qt 默认是按「列」滚（ScrollPerItem）：滚一格跳一整列、拖滑块会一格一格吸附，
         # 手感就是一跳一跳的。列那么宽，跳一格就是几百像素。
@@ -1740,6 +1790,25 @@ class MainWindow(QMainWindow):
         if 0 <= src.row() < len(self.model.rows):
             self.do_resume(self.model.rows[src.row()])
 
+    def _table_menu(self, pos):
+        """右键菜单。点空白处不动选中项，点行上则先选中那一行。"""
+        if not self.selected():
+            idx = self.table.indexAt(pos)
+            if idx.isValid():
+                self.table.selectRow(idx.row())
+        if not self.selected():
+            return
+        menu = QMenu(self)
+        for text, fn in ((T("接着聊"), self.do_resume), (T("改名"), self.do_rename),
+                         (T("复制命令"), self.do_copy),
+                         (T("打开目录"), self.do_open_folder)):
+            menu.addAction(text, fn)
+        menu.addSeparator()          # 下面两条是破坏性的，隔开
+        for text, fn in ((T("迁移工作区"), self.do_migrate),
+                         (T("删除"), self.do_delete)):
+            menu.addAction(text, fn)
+        menu.exec(self.table.viewport().mapToGlobal(pos))
+
     # —— 动作 ——
     def do_resume(self, rec=None, *_):
         if self.search.hasFocus():
@@ -1836,11 +1905,16 @@ class MainWindow(QMainWindow):
                 self, T("目录不存在"),
                 T('找不到此对话的目录：\n\n%s') % (cwd or T("（无记录）")))
             return
+        # 先开，开成功了再报「已打开」。原顺序是反的 ——
+        # open_folder 失败时状态栏照样说「已在新窗口打开」，那是在骗人。
+        if not core.open_folder(cwd):
+            QMessageBox.warning(self, T("无法打开"),
+                                T('打不开这个目录：\n\n%s') % cwd)
+            return
         if len(rows) > 1:
             self.status.setText(T("已选择 %d 个，打开第一个的目录：%s") % (len(rows), cwd))
         else:
             self.status.setText(T("已在新窗口打开（目录 %s）") % cwd)
-        core.open_folder(cwd)
 
     def do_migrate(self):
         """把选中对话的工作区改到别的目录。

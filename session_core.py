@@ -199,10 +199,21 @@ def open_terminal(cwd, command):
 
 
 def open_folder(path):
-    """用系统的文件管理器打开一个目录。"""
+    """用系统的文件管理器打开一个目录。
+
+    Windows 上**显式调 explorer.exe，不走 os.startfile**。
+    startfile 走的是系统「打开文件夹」的【关联动作】—— 那个关联被系统设置
+    或第三方工具改过之后，点「打开目录」就可能变成开终端、开别的程序，
+    甚至什么都不发生（startfile 不报错，调用方看不出来）。
+    explorer.exe 是直接指名道姓，中间没有可被改道的一层。
+
+    返回 True 只代表「命令发出去了」；资源管理器到底开没开，这里管不着。
+    """
     try:
+        if not path or not os.path.isdir(path):
+            return False
         if IS_WINDOWS:
-            os.startfile(path)
+            subprocess.Popen(["explorer.exe", os.path.normpath(path)])
         elif sys.platform == "darwin":
             subprocess.Popen(["open", path])
         else:

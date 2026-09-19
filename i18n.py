@@ -215,6 +215,8 @@ EN = {
         'The default workspace is missing:\n\n%s\n\nPlease choose a new one in Settings.',
     '找不到此对话的目录：\n\n%s':
         'The folder for this conversation is missing:\n\n%s',
+    '打不开这个目录：\n\n%s':
+        'Could not open this folder:\n\n%s',
     '（无记录）':
         '(not recorded)',
     '已选择 %d 个，打开第一个的目录：%s':
