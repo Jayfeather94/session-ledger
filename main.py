@@ -1981,7 +1981,8 @@ class MainWindow(QMainWindow):
         if QMessageBox.question(
                 self, T("迁移工作区"),
                 T("将以下 %d 个对话的工作区改为：\n\n%s\n\n%s\n\n"
-                  "将改写对话文件中记录的路径，并把文件移至新目录对应的项目文件夹。\n"
+                  "将改写对话文件中记录的路径，并把对话文件移至新目录对应的项目文件夹。\n"
+                  "你自己放在旧工作区里的文件不会被移动。\n"
                   "原文件会先完整备份到配置目录的 migrate_backup/ 下。") % (len(todo), target, names)
         ) != QMessageBox.Yes:
             return

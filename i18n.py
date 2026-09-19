@@ -152,12 +152,14 @@ EN = {
     '所选对话已在此工作区中':
         'The selected conversations are already in this workspace.',
     '将以下 %d 个对话的工作区改为：\n\n%s\n\n%s\n\n'
-    '将改写对话文件中记录的路径，并把文件移至新目录对应的项目文件夹。\n'
+    '将改写对话文件中记录的路径，并把对话文件移至新目录对应的项目文件夹。\n'
+    '你自己放在旧工作区里的文件不会被移动。\n'
     '原文件会先完整备份到配置目录的 migrate_backup/ 下。':
         'Change the workspace of the following %d conversations to:\n\n%s\n\n%s\n\n'
-        'This rewrites the paths stored in the conversation files and moves them to the\n'
-        'project folder for the new directory.\n'
-        'The original files are backed up to migrate_backup/ in the config directory first.',
+        'This rewrites the paths stored in the conversation files and moves those files\n'
+        'into the project folder for the new directory.\n'
+        'Files you created in the old workspace are not moved.\n'
+        'The original conversation files are backed up to migrate_backup/ first.',
     '部分对话迁移失败':
         'Some conversations failed to migrate.',
     '迁移完成 %d 个，失败 %d 个':
