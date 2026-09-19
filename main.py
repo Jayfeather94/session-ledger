@@ -391,6 +391,8 @@ QLabel {{ color: {text}; background: transparent; }}
    没有它们的话，一屏控件全是同样粗细同样颜色的字，看着就是一坨。 */
 QLabel#section {{ color: {text}; font-size: 10.5pt; font-weight: bold; }}
 QLabel#hint {{ color: {dim}; }}
+/* 设置对话框的页脚：比说明文字再淡一点、字号也小半档 */
+QLabel#footer {{ color: {disabled}; font-size: 9pt; }}
 /* 分割线用 background 画（控件本身 setFixedHeight(1)），不用 QFrame 自带的
    边框形状 —— 两个一起上会画成两像素。 */
 QFrame#divider {{ background-color: rgba({line_rgb}, {line_a}); border: none; }}
@@ -1132,6 +1134,27 @@ class LookDialog(QDialog):
         b_close.clicked.connect(self.accept)
         bottom.addWidget(b_close)
         outer.addLayout(bottom)
+
+        # ———— 页脚：开发者与版权 ————
+        # 放在最底下、用最淡的一档颜色。它是「需要时找得到」，不是要抢眼；
+        # 字号也压小半档，跟正文拉开层次。
+        outer.addSpacing(10)
+        rule = QFrame()
+        rule.setObjectName("divider")
+        rule.setFixedHeight(1)
+        outer.addWidget(rule)
+        outer.addSpacing(6)
+
+        foot = QLabel(T("会话簿 %s　·　© 2026 %s　·　MIT 许可")
+                      % (core.APP_VERSION, core.AUTHOR))
+        foot.setObjectName("footer")
+        outer.addWidget(foot)
+
+        link = QLabel('<a href="%s">%s</a>'
+                      % (core.REPO_URL, core.REPO_URL.replace("https://", "")))
+        link.setObjectName("footer")
+        link.setOpenExternalLinks(True)
+        outer.addWidget(link)
 
         fm = self.fontMetrics()
         w = max((fm.horizontalAdvance(lb.text()) for lb in self._labels), default=0)

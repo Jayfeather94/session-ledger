@@ -19,6 +19,8 @@ LANG = "zh"
 EN = {
     '会话簿':
         'SessionLedger',
+    '会话簿 %s　·　© 2026 %s　·　MIT 许可':
+        'SessionLedger %s　·　© 2026 %s　·　MIT License',
     '设置':
         'Settings',
     '回收站':
