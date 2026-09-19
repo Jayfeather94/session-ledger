@@ -2256,9 +2256,9 @@ def main():
     # 窗口左上角 / 任务栏的图标。打包后 exe 自己也带图标，但源码直接跑时
     # 只有这个文件能指望；两种情形路径不同，所以先看 _MEIPASS。
     _base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    _ico = os.path.join(_base, "assets", "icon.ico")
-    if os.path.exists(_ico):
-        app.setWindowIcon(QIcon(_ico))
+    _icon = os.path.join(_base, "assets", "icon.png")
+    if os.path.exists(_icon):
+        app.setWindowIcon(QIcon(_icon))
 
     ui = core.read_ui()
     i18n.set_lang(ui.get("lang") or default_lang())

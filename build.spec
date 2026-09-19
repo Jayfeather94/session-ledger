@@ -84,7 +84,8 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=os.path.join(ROOT, "assets", "icon.ico"),
+    # 直接喂 PNG（1024²，带透明底）：PyInstaller 装了 Pillow 会自己转成 exe 的图标资源
+    icon=os.path.join(ROOT, "assets", "icon.png"),
     version=os.path.join(ROOT, "version_info.txt"),
 )
 
