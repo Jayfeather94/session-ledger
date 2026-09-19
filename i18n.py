@@ -27,6 +27,10 @@ EN = {
         'Trash',
     '回收站 (%d)':
         'Trash (%d)',
+    '窗口放不下的按钮都在这里':
+        'Buttons that did not fit are listed here',
+    '拖动这里缩放窗口':
+        'Drag here to resize the window',
     '回收站 —— 已删除的对话':
         'Trash — deleted conversations',
     '搜索':

@@ -26,8 +26,8 @@ from PySide6.QtWidgets import (
     QAbstractItemView, QAbstractScrollArea, QApplication, QButtonGroup, QCheckBox,
     QComboBox, QDialog, QFileDialog, QFormLayout, QFrame,
     QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QMainWindow,
-    QMenu, QMessageBox, QPushButton, QRadioButton, QSlider, QStyledItemDelegate,
-    QTableView, QVBoxLayout, QWidget,
+    QMenu, QMessageBox, QPushButton, QRadioButton, QSizeGrip, QSlider,
+    QStyledItemDelegate, QTableView, QVBoxLayout, QWidget,
 )
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -384,6 +384,11 @@ QPushButton {{
 QPushButton:hover   {{ background-color: rgba({ctrl}, {hover_a}); }}
 QPushButton:pressed {{ background-color: {press}; }}
 QPushButton:disabled {{ color: {disabled}; }}
+/* 底排那个「▾」——放不下的按钮收在这里。左右留白比普通按钮小一截，
+   不然它自己就要占掉一个按钮的位置，等于白收一个。 */
+QPushButton#more {{
+    padding: 6px 9px;
+}}
 QLabel {{ color: {text}; background: transparent; }}
 /* 设置对话框的层次靠四样东西撑：
    #section 组标题（比正文大半档、加粗）、#hint 说明（压暗）、
@@ -1659,16 +1664,22 @@ class MainWindow(QMainWindow):
         lay.addWidget(self.detail)
 
         bar = QHBoxLayout()
+        self.bar = bar
         # 「新建对话」不依赖选中哪一行，用它的是「我要开个新活」——
         # 跟右边的行操作不是一回事，所以单独隔开。
         self.new_btn = QPushButton(T("新建对话"))
         self.new_btn.clicked.connect(self.do_new_session)
         self._refresh_new_btn()
         bar.addWidget(self.new_btn)
-        sep = QFrame()
-        sep.setFrameShape(QFrame.VLine)
-        sep.setFrameShadow(QFrame.Sunken)
-        bar.addWidget(sep)
+        self._bar_sep = QFrame()
+        self._bar_sep.setFrameShape(QFrame.VLine)
+        self._bar_sep.setFrameShadow(QFrame.Sunken)
+        bar.addWidget(self._bar_sep)
+
+        # 中间这六个是【可收起的】。窗口窄到放不下时，按【从右往左】的顺序
+        # 一个个收进「▾」—— 越靠右的越少用到（迁移工作区、打开目录）。
+        # 收起来的不是没了：▾ 里点得到，列表的右键菜单里也点得到。
+        self._bar_mid = []
         for text, fn in ((T("接着聊"), self.do_resume), (T("改名"), self.do_rename),
                          (T("删除"), self.do_delete), (T("复制命令"), self.do_copy),
                          (T("打开目录"), self.do_open_folder),
@@ -1676,10 +1687,19 @@ class MainWindow(QMainWindow):
             b = QPushButton(text)
             b.clicked.connect(fn)
             bar.addWidget(b)
+            self._bar_mid.append((b, text, fn))   # 文案和动作存一份，▾ 菜单要用
+
+        self.more_btn = QPushButton("▾")
+        self.more_btn.setObjectName("more")
+        self.more_btn.setToolTip(T("窗口放不下的按钮都在这里"))
+        self.more_btn.clicked.connect(self._more_menu)
+        self.more_btn.setVisible(False)
+        bar.addWidget(self.more_btn)
+
         bar.addStretch(1)
-        b_bg = QPushButton(T("设置"))
-        b_bg.clicked.connect(lambda: LookDialog(self).exec())
-        bar.addWidget(b_bg)
+        self.btn_settings = QPushButton(T("设置"))
+        self.btn_settings.clicked.connect(lambda: LookDialog(self).exec())
+        bar.addWidget(self.btn_settings)
         self.trash_btn = QPushButton(T("回收站"))
         self.trash_btn.clicked.connect(self.open_trash)
         bar.addWidget(self.trash_btn)
@@ -1689,6 +1709,19 @@ class MainWindow(QMainWindow):
         self.status.setObjectName("strip")
         self.status.setAlignment(Qt.AlignRight)
         lay.addWidget(self.status)
+
+        # 右下角的缩放角标。窗口那圈边框本来就能拖，但右下角那个斜纹判定区
+        # 只有几个像素宽，鼠标很难压中；挂一个 QSizeGrip 上去，等于把它
+        # 放大到十几像素见方 —— 很多软件都有这个。窗口最大化时它自己藏起来。
+        # 放在右下角的【留白带】里（布局右边距 22px），压不到状态栏的字。
+        self.grip = QSizeGrip(self.backdrop)
+        self.grip.setFixedSize(16, 16)
+        self.grip.setToolTip(T("拖动这里缩放窗口"))
+        self._place_grip()
+
+        # 最小宽度必须赶在 show 之前设上（原因见 _bar_floor）。这一句不能挪进
+        # _fit_bar —— 那个是显示之后才跑的，救不回已经被撑开的窗口。
+        self.setMinimumWidth(self._bar_floor())
 
         # Delete / F2 / 回车 绑在表格上（WidgetShortcut）：
         # 焦点在搜索框里时按 Delete 删的是文字，不会误删对话
@@ -1807,6 +1840,93 @@ class MainWindow(QMainWindow):
         # 延到下一轮事件循环再算：resizeEvent 当场算的话布局还没更新，
         # viewport().width() 拿到的是旧值，算出来的余量是错的
         QTimer.singleShot(0, self._fill_slack)
+        QTimer.singleShot(0, self._fit_bar)
+        QTimer.singleShot(0, self._place_grip)
+
+    def _place_grip(self):
+        """把缩放角标钉在右下角。它不是布局里的东西，位置得自己算。
+
+        故意落在布局右边距（22px）那条留白里：状态栏的字右对齐、也停在那条
+        留白上，角标贴在最外侧就不会压到字。
+        """
+        b = self.backdrop
+        self.grip.move(max(0, b.width() - self.grip.width() - 4),
+                       max(0, b.height() - self.grip.height() - 4))
+        self.grip.raise_()      # 同一父控件下还有一堆布局里的控件，抬到最上层
+
+    def _fit_bar(self):
+        """按窗口宽度决定底排留几个按钮，放不下的收进「▾」。
+
+        以前是交给布局自己挤：挤到极限按钮就贴在一起，窗口也跟着缩不动了
+        （最小宽度被那排按钮的尺寸顶住了）。现在改成放不下就收起来，按钮
+        永远不叠，窗口也能一直缩下去。
+
+        只算 sizeHint 不算实际几何：按钮是固定文案、没有伸缩，两者一样，
+        而且这样不用等布局算完，结果稳定、也不会自己触发自己。
+        """
+        mid = getattr(self, "_bar_mid", None)
+        if not mid:
+            return
+        lm = self.backdrop.layout().contentsMargins()
+        avail = self.backdrop.width() - lm.left() - lm.right()
+        sp = self.bar.spacing()
+        fixed = (self.new_btn.sizeHint().width()
+                 + self._bar_sep.sizeHint().width()
+                 + self.btn_settings.sizeHint().width()
+                 + self.trash_btn.sizeHint().width())
+        more_w = self.more_btn.sizeHint().width()
+        widths = [b.sizeHint().width() for b, _t, _f in mid]
+
+        # 从右往左收，收到装得下为止。可见控件 = 固定四个 + 留下的 + 「▾」，
+        # 之间的间隔比控件数少一个，所以是 4 + keep。
+        keep = len(widths)
+        while keep > 0:
+            need = fixed + sum(widths[:keep]) + more_w + sp * (4 + keep)
+            if need <= avail:
+                break
+            keep -= 1
+
+        for i, (b, _t, _f) in enumerate(mid):
+            b.setVisible(i < keep)
+        self.more_btn.setVisible(keep < len(mid))
+
+        # 按钮文案会变（工作区名、回收站条数），尺寸跟着变，所以每次重算
+        floor = self._bar_floor()
+        if self.minimumWidth() != floor:
+            self.setMinimumWidth(floor)
+
+    def _bar_floor(self):
+        """窗口允许缩到的最小宽度：固定件 + 「▾」，中间六个一个不留也算得出。
+
+        跟着按钮的【实际尺寸】走，不写死数字 —— 系统缩放调大时按钮会一起
+        变大，写死的数字当场失效，那个「缩到按钮贴在一起」的老毛病就会换个
+        缩放倍率重新出现。
+
+        ★ 这个值必须在【窗口显示之前】就设上去，不能只放在 _fit_bar 里。
+          _fit_bar 是显示之后才跑的，而窗口 show 的那一瞬间，Qt 会拿
+          【布局的最小宽度】当底线 —— 那会儿按钮一个都没收，底线是整排按钮
+          的宽度。结果就是：恢复出来的窄窗口当场被撑回去，尺寸记忆失效
+          （实测存档 389，show 之后变成 851）。显式最小宽度垫在前面，
+          show 就不会再撑。
+        """
+        lm = self.backdrop.layout().contentsMargins()
+        sp = self.bar.spacing()
+        return (lm.left() + lm.right() + sp * 4 + self.more_btn.sizeHint().width()
+                + self.new_btn.sizeHint().width() + self._bar_sep.sizeHint().width()
+                + self.btn_settings.sizeHint().width() + self.trash_btn.sizeHint().width())
+
+    def _more_menu(self):
+        """「▾」：把此刻收起来的按钮列出来。
+
+        只是换个地方点 —— 动作和底排那些是同一个函数，不是另做一套。
+        """
+        menu = QMenu(self)
+        for b, text, fn in self._bar_mid:
+            if not b.isVisible():
+                menu.addAction(text, fn)
+        if menu.isEmpty():
+            return
+        menu.exec(self.more_btn.mapToGlobal(self.more_btn.rect().bottomLeft()))
 
     def _on_double(self, index):
         src = self.proxy.mapToSource(index)
@@ -2316,6 +2436,10 @@ class MainWindow(QMainWindow):
     def showEvent(self, ev):
         super().showEvent(ev)
         self._apply_titlebar()
+        # 构造阶段 backdrop 还没被布局量过宽，_fit_bar 算出来的是错的；
+        # 显示之后补一次，保证第一眼看到的就是收好的样子。
+        QTimer.singleShot(0, self._fit_bar)
+        QTimer.singleShot(0, self._place_grip)
         # 首次运行引导挂在这儿，不挂在 reload() 里 —— reload() 在 __init__ 阶段
         # 就会被调到，那会儿窗口还没显示，对着空气弹模态框很别扭。
         QTimer.singleShot(0, self._check_claude_code)
