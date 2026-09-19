@@ -44,7 +44,7 @@ if not exist "%PY%" (
 )
 
 echo.
-echo === 1/5  Checking UI strings for missing translations ===
+echo === 1/6  Checking UI strings for missing translations ===
 "%PY%" check_i18n.py
 if errorlevel 1 (
     echo.
@@ -56,12 +56,12 @@ if errorlevel 1 (
 )
 
 echo.
-echo === 2/5  Cleaning previous output ===
+echo === 2/6  Cleaning previous output ===
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 
 echo.
-echo === 3/5  Building ===
+echo === 3/6  Building ===
 "%PY%" -m PyInstaller --clean --noconfirm build.spec
 if errorlevel 1 (
     echo.
@@ -71,7 +71,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo === 4/5  Copying the user guide and the license texts ===
+echo === 4/6  Copying the user guide and the license texts ===
 rem These go NEXT TO the exe, not into PyInstaller's datas - a data file lands
 rem under _internal\ where nobody looks.
 rem Do NOT let the destination path end with a backslash: inside quotes, the
@@ -92,7 +92,7 @@ exit /b 1
 :selfcheck
 
 echo.
-echo === 5/5  Self-check ===
+echo === 5/6  Self-check ===
 if not exist "dist\SessionLedger\SessionLedger.exe" (
     echo [x] dist\SessionLedger\SessionLedger.exe was not produced.
     pause
@@ -106,5 +106,19 @@ echo Next step (optional, roughly halves the size):
 echo     powershell -ExecutionPolicy Bypass -File slim.ps1
 echo Trimming fails SILENTLY when it goes wrong, so back up dist\SessionLedger\
 echo first, and run the app after deleting each category.
+echo.
+echo === 6/6  Packaging the release zip ===
+rem Version comes from the EXE's own file properties, not from a number written
+rem here - otherwise bumping version_info.txt would produce a zip whose name
+rem disagrees with the program inside it.
+for /f "usebackq delims=" %%V in (`powershell -NoProfile -Command "$v=(Get-Item 'dist\SessionLedger\SessionLedger.exe').VersionInfo.FileVersion; ($v -split '\.')[0..2] -join '.'"`) do set VER=%%V
+powershell -NoProfile -Command "Compress-Archive -Path 'dist\SessionLedger' -DestinationPath ('SessionLedger-%VER%.zip') -Force"
+if errorlevel 1 (
+    echo [x] Failed to package the zip.
+    pause
+    exit /b 1
+)
+echo Release zip: SessionLedger-%VER%.zip
+echo Upload this file as the release asset on GitHub.
 echo.
 pause

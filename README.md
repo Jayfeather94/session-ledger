@@ -74,8 +74,10 @@ venv\Scripts\python check_i18n.py
 venv\Scripts\python -m PyInstaller --clean --noconfirm build.spec
 ```
 
-Output lands in `dist\SessionLedger\`. `打包.bat` runs these same steps; edit the
-`VENV` path at the top of it first.
+`build.bat` runs these same steps and then packages the result into
+`SessionLedger-<version>.zip`, taking the version from the EXE's own file
+properties so the file name cannot drift from the build. Edit the `VENV` path at
+the top of the script first.
 
 `check_i18n.py` is not optional: the string table falls back to Chinese on a
 miss, so a forgotten translation is invisible to a Chinese user and only shows
