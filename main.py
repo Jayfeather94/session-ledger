@@ -26,8 +26,8 @@ from PySide6.QtWidgets import (
     QAbstractItemView, QAbstractScrollArea, QApplication, QButtonGroup, QCheckBox,
     QComboBox, QDialog, QFileDialog, QFormLayout, QFrame,
     QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QMainWindow,
-    QMenu, QMessageBox, QPushButton, QRadioButton, QSizeGrip, QSlider,
-    QStyledItemDelegate, QTableView, QVBoxLayout, QWidget,
+    QMenu, QMessageBox, QPushButton, QRadioButton, QScrollArea, QSizeGrip,
+    QSlider, QStyledItemDelegate, QTableView, QVBoxLayout, QWidget,
 )
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -1108,9 +1108,28 @@ class LookDialog(QDialog):
         super().__init__(parent)
         self.win = parent
         self.setWindowTitle(T("设置"))
-        self.setMinimumWidth(560)
+        # 这是【能缩到多小】的下限，不是打开尺寸（打开尺寸在末尾按内容算）。
+        # 定得比内容小得多是有意的：再往下缩，就由滚动条接手，见下面。
+        self.setMinimumSize(340, 300)
 
-        outer = QVBoxLayout(self)
+        # 外面套一层滚动区。不套的话，这个对话框的最小宽度就是【所有控件的
+        # 最小宽度之和】，一路卡着缩不动；套上之后，窗口可以缩到内容放不下
+        # 为止，再窄就自动冒出纵横滚动条，而不是把控件挤变形。
+        shell = QVBoxLayout(self)
+        shell.setContentsMargins(0, 0, 0, 0)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.NoFrame)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        inner = QWidget()
+        # 内容自己的底线。比这条线窄就出横滚动条 —— 不设的话 Qt 会一路
+        # 把滑杆、下拉框压成一条缝，那还不如直接给滚动条。
+        inner.setMinimumWidth(480)
+        self.scroll.setWidget(inner)
+        shell.addWidget(self.scroll)
+
+        outer = QVBoxLayout(inner)
         outer.setContentsMargins(24, 20, 24, 16)
         outer.setSpacing(0)
 
@@ -1165,6 +1184,14 @@ class LookDialog(QDialog):
         w = max((fm.horizontalAdvance(lb.text()) for lb in self._labels), default=0)
         for lb in self._labels:
             lb.setMinimumWidth(w)
+
+        # 打开尺寸按【内容本身】算。不能省这一步：QScrollArea 自己的 sizeHint
+        # 被 Qt 压到「最多 24 行字高」，照它开窗会是个矮窗口，一打开就杵着一条
+        # 竖滚动条。滚动条是【缩小时】才该出现的东西，不该在打开时就在那儿。
+        hint = inner.sizeHint()
+        scr = self.screen().availableGeometry() if self.screen() else None
+        self.resize(max(560, hint.width()),
+                    min(hint.height(), scr.height() - 120) if scr else hint.height())
 
         # 三根滑杆要等长，数值标签就得一样宽 —— 而且必须【定死】不能只给最小值：
         # 英文里「almost fully transparent 0%」比「semi-transparent 59%」长一大截，
